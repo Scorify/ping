@@ -1,33 +1,62 @@
-package check_template
+package ping
 
 import (
 	"context"
 	"encoding/json"
 	"fmt"
+
+	"github.com/go-ping/ping"
 )
 
-// Schema is a custom defined struct that will hold the check configuration
 type Schema struct {
-	Target string `json:"target"` // Make sure to use the json tags to define the key in the config
-	Port   int    `json:"port"`
-
-	// Add any additional fields that you want to pass in as config
+	Target string `json:"target"`
 }
 
-// Run is the function that will get called to run an instance of a check
 func Run(ctx context.Context, config string) error {
-	// Define a new Schema
 	schema := Schema{}
 
-	// Unmarshal the config to the Schema
 	err := json.Unmarshal([]byte(config), &schema)
 	if err != nil {
 		return err
 	}
 
-	// Custom logic to run the check
+	// create pinger
+	pinger, err := ping.NewPinger(schema.Target)
+	if err != nil {
+		return fmt.Errorf("failed to create pinger; err: %s", err)
+	}
 
-	fmt.Println("Running check with target:", schema.Target, "and port:", schema.Port)
+	pinger.Count = 1
+	doneChan := make(chan error, 1)
 
-	return nil
+	// run ping
+	go func() {
+		defer close(doneChan)
+		doneChan <- pinger.Run()
+	}()
+
+	// handle ping output
+	select {
+	case err := <-doneChan:
+		if err != nil {
+			// error occurred during ping
+			return err
+		}
+
+		stats := pinger.Statistics()
+
+		if stats.PacketLoss == 0 {
+			// successful ping
+			return nil
+		} else {
+			// packet loss not 0
+			return fmt.Errorf("packet loss not 0; packet loss: %f", stats.PacketLoss)
+		}
+
+	case <-ctx.Done():
+		pinger.Stop()
+
+		// context exceed; timeout
+		return fmt.Errorf("timeout exceeded; err: %s", ctx.Err())
+	}
 }
