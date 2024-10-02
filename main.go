@@ -9,7 +9,7 @@ import (
 )
 
 type Schema struct {
-	Target string `json:"target"`
+	Target string `key:"target"`
 }
 
 func Run(ctx context.Context, config string) error {
