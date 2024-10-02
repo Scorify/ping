@@ -1,8 +1,13 @@
 module github.com/scorify/ping
 
-go 1.21.6
+go 1.22.6
 
-require github.com/go-ping/ping v1.1.0
+toolchain go1.22.7
+
+require (
+	github.com/go-ping/ping v1.1.0
+	github.com/scorify/schema v0.0.0
+)
 
 require (
 	github.com/google/uuid v1.2.0 // indirect
