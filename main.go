@@ -2,10 +2,10 @@ package ping
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 
 	"github.com/go-ping/ping"
+	"github.com/scorify/schema"
 )
 
 type Schema struct {
@@ -24,15 +24,15 @@ func Validate(config string) error {
 }
 
 func Run(ctx context.Context, config string) error {
-	schema := Schema{}
+	conf := Schema{}
 
-	err := json.Unmarshal([]byte(config), &schema)
+	err := schema.Unmarshal([]byte(config), &conf)
 	if err != nil {
 		return err
 	}
 
 	// create pinger
-	pinger, err := ping.NewPinger(schema.Target)
+	pinger, err := ping.NewPinger(conf.Target)
 	if err != nil {
 		return fmt.Errorf("failed to create pinger; err: %s", err)
 	}
