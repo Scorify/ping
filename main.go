@@ -12,6 +12,17 @@ type Schema struct {
 	Target string `key:"target"`
 }
 
+func Validate(config string) error {
+	conf := Schema{}
+
+	err := schema.Unmarshal([]byte(config), &conf)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func Run(ctx context.Context, config string) error {
 	schema := Schema{}
 
