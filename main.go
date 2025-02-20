@@ -10,6 +10,7 @@ import (
 
 type Schema struct {
 	Target string `key:"target"`
+	Count int `key:"ping count"`
 }
 
 func Validate(config string) error {
@@ -20,6 +21,10 @@ func Validate(config string) error {
 		return err
 	}
 
+	if conf.Count < 1 || conf.Count >= 1000 {
+		return fmt.Errorf("ping count must be between 1 and 1000")
+	}
+	
 	return nil
 }
 
@@ -37,7 +42,7 @@ func Run(ctx context.Context, config string) error {
 		return fmt.Errorf("failed to create pinger; err: %s", err)
 	}
 
-	pinger.Count = 1
+	pinger.Count = conf.Count
 	doneChan := make(chan error, 1)
 
 	// run ping
@@ -56,12 +61,12 @@ func Run(ctx context.Context, config string) error {
 
 		stats := pinger.Statistics()
 
-		if stats.PacketLoss == 0 {
-			// successful ping
+		if stats.PacketLoss < 100 {
+			// at least one successful ping
 			return nil
 		} else {
-			// packet loss not 0
-			return fmt.Errorf("packet loss not 0; packet loss: %f", stats.PacketLoss)
+			// packet loss is 100%
+			return fmt.Errorf("total packet loss; packet loss: %f", stats.PacketLoss)
 		}
 
 	case <-ctx.Done():
