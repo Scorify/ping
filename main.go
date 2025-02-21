@@ -9,7 +9,17 @@ import (
 )
 
 type Schema struct {
+	// Target is the address to ping
 	Target string `key:"target"`
+
+	// Count is the number of ping requests to send
+	// Default is 1
+	Count int `key:"count" default:"1"`
+
+	// SuccessfulCount is the number of successful ping requests required
+	// Default is 1
+	// SuccessfulCount must be less than or equal to Count and greater than 0
+	SuccessfulCount int `key:"successful_count" default:"1"`
 }
 
 func Validate(config string) error {
@@ -18,6 +28,14 @@ func Validate(config string) error {
 	err := schema.Unmarshal([]byte(config), &conf)
 	if err != nil {
 		return err
+	}
+
+	if conf.Count < 1 || conf.Count > 10 {
+		return fmt.Errorf("invalid count; count must be between 1 and 10; count: %d", conf.Count)
+	}
+
+	if conf.SuccessfulCount < 1 || conf.SuccessfulCount > conf.Count {
+		return fmt.Errorf("invalid successful_count; successful_count must be between 1 and count; successful_count: %d, count: %d", conf.SuccessfulCount, conf.Count)
 	}
 
 	return nil
@@ -37,7 +55,7 @@ func Run(ctx context.Context, config string) error {
 		return fmt.Errorf("failed to create pinger; err: %s", err)
 	}
 
-	pinger.Count = 1
+	pinger.Count = conf.Count
 	doneChan := make(chan error, 1)
 
 	// run ping
@@ -56,18 +74,22 @@ func Run(ctx context.Context, config string) error {
 
 		stats := pinger.Statistics()
 
-		if stats.PacketLoss == 0 {
-			// successful ping
-			return nil
-		} else {
-			// packet loss not 0
-			return fmt.Errorf("packet loss not 0; packet loss: %f", stats.PacketLoss)
+		if stats.PacketsRecv < conf.SuccessfulCount {
+			return fmt.Errorf("ping failed; received %d packets, expected at least %d", stats.PacketsRecv, conf.SuccessfulCount)
 		}
 
+		// ping successful
+		return nil
 	case <-ctx.Done():
 		pinger.Stop()
 
-		// context exceed; timeout
-		return fmt.Errorf("timeout exceeded; err: %s", ctx.Err())
+		stats := pinger.Statistics()
+
+		if stats.PacketsRecv < conf.SuccessfulCount {
+			return fmt.Errorf("ping failed; received %d packets, expected at least %d", stats.PacketsRecv, conf.SuccessfulCount)
+		}
+
+		// ping successful
+		return nil
 	}
 }
